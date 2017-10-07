@@ -1,6 +1,6 @@
 /*!
  * # Range slider for Semantic UI.
- *
+ * 
  */
 
 ;(function ( $, window, document, undefined ) {
@@ -46,7 +46,6 @@ $.fn.range = function(parameters) {
 				thumb,
 				trackLeft,
 				precision,
-				vertical,
 
 				module
 			;
@@ -63,20 +62,7 @@ $.fn.range = function(parameters) {
 					$module
 						.data(moduleNamespace, module)
 					;
-					// determine if slider is vertical
-					vertical = ($module.hasClass('vertical')) ? true : false;
 					$(element).html("<div class='inner'><div class='track'></div><div class='track-fill'></div><div class='thumb'></div></div>");
-					if (vertical) {
-						var $inner = $('.ui.range .inner');
-						// there's no jQuery 2.3.x so indexOf '3.' will work without false positive
-						if (jQuery.fn.jquery.indexOf('3.') === -1) {
-							// as jQuery < 3 doesn't handle proper size after css rotation
-							// manually update height to match new width
-							// there's a drawback: the slider is also triggered when clicked on its side
-							$inner.css('height', $inner.width() + 'px');
-						}
-						$(element).css('transform', 'rotate(-90deg)');
-					}
 					inner = $(element).children('.inner')[0];
 					thumb = $(element).find('.thumb')[0];
 					trackLeft = $(element).find('.track-fill')[0];
@@ -128,8 +114,6 @@ $.fn.range = function(parameters) {
 
 				determineValue: function(startPos, endPos, currentPos) {
 					var ratio = (currentPos - startPos) / (endPos - startPos);
-					// reversed when vertical
-					if (vertical) ratio = 1 - ratio;
 					var range = settings.max - settings.min;
 					var difference = Math.round(ratio * range / step) * step;
 					// Use precision to avoid ugly Javascript floating point rounding issues
@@ -140,16 +124,15 @@ $.fn.range = function(parameters) {
 
 				determinePosition: function(value) {
 					var ratio = (value - settings.min) / (settings.max - settings.min);
-					if (vertical) return Math.round(ratio * $(inner).height()) - offset;
-					else return Math.round(ratio * $(inner).width()) + $(trackLeft).position().left - offset;
+					return Math.round(ratio * $(inner).width()) + $(trackLeft).position().left - offset;
 				},
 
-				setValue: function(newValue, triggeredByUser = true) {
+				setValue: function(newValue) {
 					if(settings.input) {
 						$(settings.input).val(newValue);
 					}
 					if(settings.onChange) {
-						settings.onChange(newValue, {triggeredByUser: triggeredByUser});
+						settings.onChange(newValue);
 					}
 				},
 
@@ -158,75 +141,50 @@ $.fn.range = function(parameters) {
 					$(trackLeft).css({width: String(value + offset) + 'px'});
 				},
 
-				// compute values depending on the orientation of the slider (vertical/horizontal)
 				rangeMousedown: function(mdEvent, isTouch, originalEvent) {
 					if( !$(element).hasClass('disabled') ) {
 						mdEvent.preventDefault();
-						if (vertical) {
-							var top = $(inner).offset().top;
-							var height = top + $(inner).height();
-							var pageY;
-							if (isTouch) {
-								pageY = originalEvent.originalEvent.touches[0].pageY;
-							}
-							else {
-								pageY = (typeof mdEvent.pageY != 'undefined') ? mdEvent.pageY : originalEvent.pageY;
-							}
+						var left = $(inner).offset().left;
+						var right = left + $(inner).width();
+						var pageX;
+						if(isTouch) {
+							pageX = originalEvent.originalEvent.touches[0].pageX;
+						} else {
+							pageX = (typeof mdEvent.pageX != 'undefined') ? mdEvent.pageX : originalEvent.pageX;
 						}
-						else {
-							var left = $(inner).offset().left;
-							var right = left + $(inner).width();
-							var pageX;
-							if (isTouch) {
-								pageX = originalEvent.originalEvent.touches[0].pageX;
-							}
-							else {
-								pageX = (typeof mdEvent.pageX != 'undefined') ? mdEvent.pageX : originalEvent.pageX;
-							}
-						}
-
-						var value;
-						if (vertical) value = module.determineValue(top, height, pageY);
-						else value = module.determineValue(left, right, pageX);
-						if ((!vertical && (pageX >= left && pageX <= right)) || (vertical && (pageY >= top && pageY <= height))) {
-							if (vertical) module.setPosition(height - pageY - offset);
-							else module.setPosition(pageX - left - offset);
+						var value = module.determineValue(left, right, pageX);
+						if(pageX >= left && pageX <= right) {
+							module.setPosition(pageX - left - offset);
 							module.setValue(value);
 						}
-						// set new position & value
 						var rangeMousemove = function(mmEvent) {
 							mmEvent.preventDefault();
-							if (isTouch) {
-								if (vertical) pageY = mmEvent.originalEvent.touches[0].pageY;
-								else pageX = mmEvent.originalEvent.touches[0].pageX;
+							if(isTouch) {
+								pageX = mmEvent.originalEvent.touches[0].pageX;
+							} else {
+								pageX = mmEvent.pageX;
 							}
-							else {
-								if (vertical) pageY = mmEvent.pageY;
-								else pageX = mmEvent.pageX;
-							}
-
-							if (vertical) value = module.determineValue(top, height, pageY);
-							else value = module.determineValue(left, right, pageX);
-
-							if ((!vertical && (pageX >= left && pageX <= right)) || (vertical && (pageY >= top && pageY <= height))) {
-								if (value >= settings.min && value <= settings.max) {
-									if (vertical) module.setPosition(height - pageY - offset);
-									else module.setPosition(pageX - left - offset);
+							value = module.determineValue(left, right, pageX);
+							if(pageX >= left && pageX <= right) {
+								if(value >= settings.min && value <= settings.max) {
+									module.setPosition(pageX - left - offset);
 									module.setValue(value);
 								}
 							}
-						}
-						// stop event listener
+						};
 						var rangeMouseup = function(muEvent) {
 							if(isTouch) {
 								$(document).off('touchmove', rangeMousemove);
 								$(document).off('touchend', rangeMouseup);
-							}
-							else {
+							} else {
 								$(document).off('mousemove', rangeMousemove);
 								$(document).off('mouseup', rangeMouseup);
 							}
-						}
+							if (typeof settings.onMouseUp === 'function') {
+                                var value = module.determineValue(left, right, pageX);
+								settings.onMouseUp(value);
+							}
+						};
 						if(isTouch) {
 							$(document).on('touchmove', rangeMousemove);
 							$(document).on('touchend', rangeMouseup);
@@ -238,17 +196,17 @@ $.fn.range = function(parameters) {
 					}
 				},
 
-				setValuePosition: function(val, triggeredByUser = true) {
+				setValuePosition: function(val) {
 					var position = module.determinePosition(val);
 					module.setPosition(position);
-					module.setValue(val, triggeredByUser);
+					module.setValue(val);
 				},
 
 				invoke: function(query) {
 					switch(query) {
 						case 'set value':
 							if(queryArguments.length > 0) {
-								instance.setValuePosition(queryArguments[0], false);
+								instance.setValuePosition(queryArguments[0]);
 							}
 							break;
 					}
@@ -256,17 +214,17 @@ $.fn.range = function(parameters) {
 
 			};
 
-	  if(methodInvoked) {
-		if(instance === undefined) {
-		  module.initialize();
-		}
-		module.invoke(query);
-	  }
-	  else {
-		module.initialize();
-	  }
+      if(methodInvoked) {
+        if(instance === undefined) {
+          module.initialize();
+        }
+        module.invoke(query);
+      }
+      else {
+        module.initialize();
+      }
 
-	})
+    })
   ;
 
   return this;
@@ -285,8 +243,10 @@ $.fn.range.settings = {
 	input        : false,
 
 	onChange     : function(value){},
+	onMouseUp	 : function(value){}
 
 };
 
 
 })( jQuery, window, document );
+

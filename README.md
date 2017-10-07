@@ -54,7 +54,7 @@ Notice the settings object you pass into the jQuery function in step 3. There ar
 	* value (number) - the updated value of the slider
 	* meta (object) - a hash with properties:
 		* `triggeredByUser` (boolean). `true` unless the change was triggered programmatically using `set value`. Useful for preventing infinite loops if you are calling a method that will call `set value`.
-
+* onMouseUp (function, optional) - function to call each time mouse is released. Usable when you need invoke function only when user finish action.
 ## *Getting* the slider value programmatically
 
 Use the `onChange` callback in the configuration options. For example:
